@@ -16,6 +16,10 @@ P="${PORT:-8080}"
 sed -i "s/^Listen .*/Listen $P/" /etc/apache2/ports.conf
 sed -i "s/<VirtualHost \*:[0-9]*>/<VirtualHost *:$P>/" /etc/apache2/sites-enabled/*.conf
 echo "kimai-railway: apache port=$P var/data owner=$(stat -c %u:%g /opt/kimai/var/data 2>/dev/null || echo none)"
+# Railway restores the mpm_event module the upstream image disabled in a later layer (OCI whiteouts are ignored), so
+# Apache dies with "More than one MPM loaded". Force prefork, which mod_php needs. Idempotent.
+a2dismod -f mpm_event mpm_worker >/dev/null 2>&1 || true
+a2enmod mpm_prefork >/dev/null 2>&1 || true
 
 # The upstream entrypoint installs the schema, creates the administrator and then execs Apache. The access token
 # needs both, so a watcher waits for the "Kimai is ready" marker the entrypoint writes and seeds the token once.
